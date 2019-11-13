@@ -7,12 +7,12 @@ import CryptoSwift
 struct Key {
   let keyLength = 32
   let password: String
-  let salt: String
+  let salt: String = "icGFEkNbIuNK1cz1qNq5kMV1jqkpvduX" 
   let keyDerivation: PKCS5.PBKDF2
 
   var key: [UInt8] {
     do {
-      return try self.keyDerivation.calculate()
+      return try keyDerivation.calculate()
     } catch {
       return []
     }
@@ -20,12 +20,11 @@ struct Key {
 
   init? (withPassword password: String) {
     self.password = password
-    self.salt = String.random(length: self.keyLength)
     do {
-      self.keyDerivation = try PKCS5.PBKDF2(
+      keyDerivation = try PKCS5.PBKDF2(
         password: Array(self.password.utf8),
-        salt: Array(self.salt.utf8),
-        keyLength: self.keyLength)
+        salt: Array(salt.utf8),
+        keyLength: keyLength)
     } catch {
       return nil
     }

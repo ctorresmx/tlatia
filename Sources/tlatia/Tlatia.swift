@@ -4,12 +4,6 @@
 
 import CryptoSwift
 
-enum EncryptionError: Error {
-  case notEncryptedByTlatia
-  case badEncryptionFormat
-  case encryptionError
-}
-
 class Encoder {
   private let tlatiaCode = "TLATIA_ENCODED_"
   private let key: Key
@@ -32,7 +26,7 @@ class Encoder {
     let iv = String.random(length: AES.blockSize)
     if let cipher = generateCipher(key, iv) {
       if let encryptedValue = try value.encryptToBase64(cipher: cipher) {
-        return "\(tlatiaCode)\(iv)\n\(encryptedValue)"
+        return "\(tlatiaCode)\(iv)\n\(encryptedValue)\n"
       }
     }
     throw EncryptionError.encryptionError
