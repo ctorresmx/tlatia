@@ -32,7 +32,7 @@ enum Operation: String {
 }
 
 guard CommandLine.argc == 4 else {
-  print("Usage: tlatia OPERATION INPUT [OUTPUT]")
+  print("Usage: tlatia OPERATION INPUT OUTPUT")
   exit(EXIT_FAILURE)
 }
 
