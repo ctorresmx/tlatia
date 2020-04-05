@@ -3,88 +3,108 @@
 //
 
 import Foundation
+import ArgumentParser
 
-func encrypt(file: String, withPassword password: String, toFile outputPath: String) throws {
-  let body = try String(contentsOfFile: file)
+public struct RuntimeError: Error, CustomStringConvertible {
+  var message: String
 
-  if let key = Key.init(withPassword: password) {
-    if let encoder = Encoder(withKey: key) {
-      let base64Encoded = try encoder.encrypt(body)
-      try base64Encoded.write(to: URL(fileURLWithPath: outputPath), atomically: true, encoding: String.Encoding.utf8)
+  public init(_ message: String) {
+    self.message = message
+  }
+
+  public var description: String {
+    message
+  }
+}
+
+struct Tlatia: ParsableCommand {
+  static var configuration = CommandConfiguration(
+    abstract: "A encryption/decryption utility",
+    subcommands: [Encrypt.self, Decrypt.self]
+  )
+}
+
+extension Tlatia {
+  struct Encrypt: ParsableCommand {
+    static var configuration = CommandConfiguration(abstract: "Encrypts a file using password")
+
+    @Argument(help: "The path to the file for encryption")
+    var inputPath: String
+
+    @Argument(help: "The path to the encrypted file")
+    var outputPath: String
+
+    func validate() throws {
+      guard FileManager.default.fileExists(atPath: inputPath) else {
+        throw RuntimeError("The input file does not exist.")
+      }
+    }
+
+    func run() throws {
+      let password = try getPasswordEncryption()
+      let body = try String(contentsOfFile: inputPath)
+
+      if let key = Key.init(withPassword: password) {
+        if let encoder = Encoder(withKey: key) {
+          let base64Encoded = try encoder.encrypt(body)
+          try base64Encoded.write(to: URL(fileURLWithPath: outputPath), atomically: true, encoding: String.Encoding.utf8)
+        }
+      }
+    }
+
+    func getPasswordEncryption() throws -> String {
+      let password = String(cString: getpass("Enter the password: "))
+      let passwordRetry = String(cString: getpass("Enter the password again: "))
+
+      guard password != "" || passwordRetry != "" else {
+        throw RuntimeError("Passwords can't be empty")
+      }
+
+      guard password == passwordRetry else {
+        throw RuntimeError("Passwords don't match")
+      }
+
+      return password
+    }
+  }
+
+  struct Decrypt: ParsableCommand {
+    static var configuration = CommandConfiguration(abstract: "Decrypts a file using a password")
+
+    @Argument(help: "The path to the file for encryption")
+    var inputPath: String
+
+    @Argument(help: "The path to the encrypted file")
+    var outputPath: String
+
+    func validate() throws {
+      guard FileManager.default.fileExists(atPath: inputPath) else {
+        throw RuntimeError("The input file does not exist.")
+      }
+    }
+
+    func run() throws {
+      let password = try getPasswordDecryption()
+      let body = try String(contentsOfFile: inputPath)
+
+      if let key = Key.init(withPassword: password) {
+        if let encoder = Encoder(withKey: key) {
+          let decodedBody = try encoder.decrypt(body)
+          try decodedBody.write(to: URL(fileURLWithPath: outputPath), atomically: true, encoding: String.Encoding.utf8)
+        }
+      }
+    }
+
+    func getPasswordDecryption() throws -> String {
+      let password = String(cString: getpass("Enter the password: "))
+
+      guard password != "" else {
+        throw RuntimeError("Passwords can't be empty")
+      }
+
+      return password
     }
   }
 }
 
-func decrypt(file: String, withPassword password: String, toFile outputPath: String) throws {
-  let body = try String(contentsOfFile: file)
-
-  if let key = Key.init(withPassword: password) {
-    if let encoder = Encoder(withKey: key) {
-      let decodedBody = try encoder.decrypt(body)
-      try decodedBody.write(to: URL(fileURLWithPath: outputPath), atomically: true, encoding: String.Encoding.utf8)
-    }
-  }
-}
-
-enum Operation: String {
-  case encrypt;
-  case decrypt;
-}
-
-guard CommandLine.argc == 4 else {
-  print("Usage: tlatia OPERATION INPUT OUTPUT")
-  exit(EXIT_FAILURE)
-}
-
-let operationString = CommandLine.arguments[1]
-let inputFilePath = CommandLine.arguments[2]
-let outputFilePath = CommandLine.arguments[3]
-
-guard FileManager.default.fileExists(atPath: inputFilePath) else {
-  print("No such input file")
-  exit(EXIT_FAILURE)
-}
-
-func getPasswordEncryption() throws -> String {
-  let password = String(cString: getpass("Enter the password: "))
-  let passwordRetry = String(cString: getpass("Enter the password again: "))
-
-  guard password != "" || passwordRetry != "" else {
-    print("Passwords can't be empty")
-    exit(EXIT_FAILURE)
-  }
-
-  guard password == passwordRetry else {
-    print("Passwords don't match")
-    exit(EXIT_FAILURE)
-  }
-
-  return password
-}
-
-func getPasswordDecryption() throws -> String {
-  let password = String(cString: getpass("Enter the password: "))
-
-  guard password != "" else {
-    print("Passwords can't be empty")
-    exit(EXIT_FAILURE)
-  }
-
-  return password
-}
-
-if let operation = Operation(rawValue: operationString) {
-  switch operation {
-  case .encrypt:
-    let password = try getPasswordEncryption()
-    try encrypt(file: inputFilePath, withPassword: password, toFile: outputFilePath)
-  case .decrypt:
-    let password = try getPasswordDecryption()
-    try decrypt(file: inputFilePath, withPassword: password, toFile: outputFilePath)
-  }
-
-  exit(EXIT_SUCCESS)
-}
-
-print("There's no such operation \"\(operationString)\"")
-exit(EXIT_FAILURE)
+Tlatia.main()
